@@ -1,0 +1,51 @@
+name: Eraser Monthly Run
+
+on:
+  schedule:
+    - cron: '0 9 1 * *'
+  workflow_dispatch:
+
+jobs:
+  run-eraser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build Eraser
+        run: go build -o eraser ./cmd/eraser
+
+      - name: Write config
+        run: |
+          mkdir -p ~/.eraser
+          cat > ~/.eraser/config.yaml << EOF
+          profile:
+            first_name: ${{ secrets.ERASER_FIRST_NAME }}
+            last_name: ${{ secrets.ERASER_LAST_NAME }}
+            email: ${{ secrets.ERASER_EMAIL }}
+            address: "${{ secrets.ERASER_ADDRESS }}"
+            city: ${{ secrets.ERASER_CITY }}
+            state: ${{ secrets.ERASER_STATE }}
+            zip_code: ${{ secrets.ERASER_ZIP_CODE }}
+            country: ${{ secrets.ERASER_COUNTRY }}
+            phone: ${{ secrets.ERASER_PHONE }}
+            date_of_birth: ${{ secrets.ERASER_DATE_OF_BIRTH }}
+          email:
+            provider: smtp
+            from: ${{ secrets.ERASER_SMTP_USERNAME }}
+            smtp:
+              host: ${{ secrets.ERASER_SMTP_HOST }}
+              port: ${{ secrets.ERASER_SMTP_PORT }}
+              username: ${{ secrets.ERASER_SMTP_USERNAME }}
+              password: ${{ secrets.ERASER_SMTP_PASSWORD }}
+              use_tls: true
+          options:
+            template: ${{ secrets.ERASER_TEMPLATE }}
+          EOF
+
+      - name: Send removal requests
+        run: ./eraser send
