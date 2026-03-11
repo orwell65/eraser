@@ -25,6 +25,7 @@ func (s *SMTPSender) Send(ctx context.Context, msg Message) Result {
 	if err := validateMessage(msg); err != nil {
 		return Result{Success: false, Error: err}
 	}
+
 	// Reject headers with CRLF to prevent injection
 	if strings.ContainsAny(msg.Subject, "\r\n") {
 		return Result{Success: false, Error: fmt.Errorf("subject contains invalid characters")}
@@ -36,6 +37,7 @@ func (s *SMTPSender) Send(ctx context.Context, msg Message) Result {
 	message.WriteString(fmt.Sprintf("From: %s\r\n", msg.From))
 	message.WriteString(fmt.Sprintf("To: %s\r\n", msg.To))
 	message.WriteString(fmt.Sprintf("Subject: %s\r\n", msg.Subject))
+	message.WriteString("Reply-To: smh.negate571@passmail.net\r\n")
 	message.WriteString("MIME-Version: 1.0\r\n")
 	message.WriteString("Content-Type: text/plain; charset=utf-8\r\n")
 	message.WriteString("\r\n")
@@ -52,6 +54,7 @@ func (s *SMTPSender) Send(ctx context.Context, msg Message) Result {
 		}
 		err = smtp.SendMail(addr, nil, msg.From, []string{msg.To}, []byte(message.String()))
 	}
+
 	if err != nil {
 		return Result{Success: false, Error: sanitizeSMTPError(err)}
 	}
@@ -92,9 +95,11 @@ func (s *SMTPSender) sendWithTLS(addr string, auth smtp.Auth, from, to string, m
 	if err := client.Auth(auth); err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}
+
 	if err := client.Mail(from); err != nil {
 		return fmt.Errorf("sender rejected: %w", err)
 	}
+
 	if err := client.Rcpt(to); err != nil {
 		return fmt.Errorf("recipient rejected: %w", err)
 	}
@@ -103,11 +108,14 @@ func (s *SMTPSender) sendWithTLS(addr string, auth smtp.Auth, from, to string, m
 	if err != nil {
 		return fmt.Errorf("data command failed: %w", err)
 	}
+
 	if _, err = w.Write(msg); err != nil {
 		return fmt.Errorf("message write failed: %w", err)
 	}
+
 	if err := w.Close(); err != nil {
 		return fmt.Errorf("message finalization failed: %w", err)
 	}
+
 	return client.Quit()
 }
